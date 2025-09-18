@@ -1510,6 +1510,13 @@ class ResolvedContext(object):
         executor.env.REZ_RXT_FILE = rxt_file
         executor.env.REZ_CONTEXT_FILE = context_file
 
+        # -----------------------------------------------
+        # Marcelo: save rxt contents into a env variable
+        with open(rxt_file) as f:
+            rxt_as_string = f.read()
+        executor.env.HH_REZ_RXT_STR = rxt_as_string
+        # -----------------------------------------------
+
         if actions_callback:
             header_comment(executor, "pre-actions-callback")
             actions_callback(executor)
