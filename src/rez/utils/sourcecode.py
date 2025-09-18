@@ -314,6 +314,8 @@ class IncludeModuleManager(object):
         from rez.config import config  # avoiding circular import
         from rez.developer_package import DeveloperPackage
 
+        hh_pcks_as_dev = ["hh_project"]  # (Marcelo): added hh_project
+
         # in rare cases, a @late bound function may get called before the
         # package is built. An example is 'requires' and the other requires-like
         # functions. These need to be evaluated before a build, but it does also
@@ -321,7 +323,7 @@ class IncludeModuleManager(object):
         # detect this case here, and load the modules from the original (pre-
         # copied into package payload) location.
         #
-        if isinstance(package, DeveloperPackage):
+        if isinstance(package, DeveloperPackage) or (package.name in hh_pcks_as_dev):
             # load sourcefile from original location
             path = config.package_definition_python_path
             filepath = os.path.join(path, "%s.py" % name)
