@@ -85,6 +85,8 @@ class HHEmailReleaseHook(ReleaseHook):
 
         # ---------------------------------------------
         # Send email
+        print()
+        print("--------------------hh_emailer - release hook--------------------")
         print("Sending HH release email to:")
         print('\n'.join("- %s" % x for x in recipients))
 
