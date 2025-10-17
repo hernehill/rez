@@ -396,6 +396,7 @@ class UnixShell(Shell):
                     stdin: bool = False,
                     command=None, env=None,
                     quiet: bool = False,
+                    printOnlyLocal=False,
                     pre_command: str | list[str] | None = None,
                     add_rez: bool = True,
                     package_commands_sourced_first=None, **Popen_args):
@@ -410,7 +411,7 @@ class UnixShell(Shell):
         if package_commands_sourced_first is None:
             package_commands_sourced_first = config.package_commands_sourced_first
 
-        def _record_shell(ex: RexExecutor, files, bind_rez: bool = True, print_msg: bool = False) -> None:
+        def _record_shell(ex: RexExecutor, files, bind_rez: bool = True, print_msg: bool = False, printOnlyLocal=False) -> None:
             if bind_rez and package_commands_sourced_first:
                 ex.source(context_file)
 
@@ -426,11 +427,14 @@ class UnixShell(Shell):
             if add_rez and bind_rez:
                 ex.interpreter._bind_interactive_rez()
             if print_msg and add_rez and not quiet:
-                ex.info('')
+                # ex.info('')
                 ex.info('You are now in a rez-configured environment.')
-                ex.info('')
+                # ex.info('')
                 if system.is_production_rez_install:
-                    ex.command('rezolve context')
+                    if not printOnlyLocal:
+                        ex.command('rezolve context')
+                    else:
+                        ex.command('rezolve context --printOnlyLocal')
 
         def _write_shell(ex: RexExecutor, filename: str):
             code = ex.get_output()
@@ -468,14 +472,14 @@ class UnixShell(Shell):
             if do_rcfile:
                 # hijack rcfile to insert our own script
                 ex = _create_ex()
-                _record_shell(ex, files=files, print_msg=(not quiet))
+                _record_shell(ex, files=files, print_msg=(not quiet), printOnlyLocal=printOnlyLocal)
                 filename = "rcfile.%s" % self.file_extension()
                 filepath = _write_shell(ex, filename)
                 shell_command += " %s" % filepath
             elif envvar:
                 # hijack env-var to insert our own script
                 ex = _create_ex()
-                _record_shell(ex, files=files, print_msg=(not quiet))
+                _record_shell(ex, files=files, print_msg=(not quiet), printOnlyLocal=printOnlyLocal)
                 filename = "%s.%s" % (envvar, self.file_extension())
                 filepath = _write_shell(ex, filename)
                 executor.setenv(envvar, filepath)
@@ -495,7 +499,7 @@ class UnixShell(Shell):
                         ex = _create_ex()
                         ex.setenv('HOME', os.environ.get('HOME', ''))
                         _record_shell(ex, files=files_, bind_rez=bind_rez,
-                                      print_msg=bind_rez)
+                                      print_msg=bind_rez, printOnlyLocal=printOnlyLocal)
                         _write_shell(ex, os.path.basename(file_))
 
                     executor.setenv("HOME", tmpdir)

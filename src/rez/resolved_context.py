@@ -162,7 +162,7 @@ class ResolvedContext(object):
     command within a configured python namespace, without spawning a child
     shell.
     """
-    serialize_version = (4, 9)
+    serialize_version = (4, 7)
     tmpdir_manager = TempDirs(config.context_tmpdir, prefix="rez_context_")
     context_tracking_payload: dict[str, Any] | None = None
     context_tracking_lock = threading.Lock()
@@ -220,7 +220,6 @@ class ResolvedContext(object):
             timestamp (float): Ignore packages released after this epoch time. Packages
                 released at exactly this time will not be ignored.
             building (bool): True if we're resolving for a build.
-            testing (bool): True if we're resolving for a test (rez-test).
             caching (bool): If True, cache(s) may be used to speed the resolve. If
                 False, caches will not be used. If None, :data:`resolve_caching`
                 is used.
@@ -853,7 +852,8 @@ class ResolvedContext(object):
 
     @pool_memcached_connections
     def print_info(self, buf: SupportsWrite = sys.stdout, verbosity: int = 0,
-                   source_order: bool = False, show_resolved_uris: bool = False) -> None:
+                   source_order: bool = False, show_resolved_uris: bool = False,
+                   printOnlyLocal=False) -> None:
         """Prints a message summarising the contents of the resolved context.
 
         Args:
@@ -880,8 +880,9 @@ class ResolvedContext(object):
             res_status = "resolved"
 
         t_str = _rt(self.created)
-        _pr("%s by %s@%s, on %s, using Rez v%s"
-            % (res_status, self.user, self.host, t_str, self.rez_version))
+        if not printOnlyLocal:
+            _pr("%s by %s@%s, on %s, using Rez v%s"
+                % (res_status, self.user, self.host, t_str, self.rez_version))
         if self.requested_timestamp:
             t_str = _rt(self.requested_timestamp)
             _pr("packages released after %s were ignored" % t_str)
@@ -912,24 +913,25 @@ class ResolvedContext(object):
                 _pr(txt)
                 _pr()
 
-        _pr("requested packages:", heading)
-        rows = []
-        colors = []
-        for request in self._package_requests:
-            if request.name.startswith('.'):
-                rows.append((str(request), "(ephemeral)"))
-                colors.append(ephemeral_color)
-            else:
-                rows.append((str(request), ""))
-                colors.append(None)
+        if not printOnlyLocal:
+            _pr("requested packages:", heading)
+            rows = []
+            colors = []
+            for request in self._package_requests:
+                if request.name.startswith('.'):
+                    rows.append((str(request), "(ephemeral)"))
+                    colors.append(ephemeral_color)
+                else:
+                    rows.append((str(request), ""))
+                    colors.append(None)
 
-        for request in self.implicit_packages:
-            rows.append((str(request), "(implicit)"))
-            colors.append(implicit)
+            for request in self.implicit_packages:
+                rows.append((str(request), "(implicit)"))
+                colors.append(implicit)
 
-        for col, line in zip(colors, columnise(rows)):
-            _pr(line, col)
-        _pr()
+            for col, line in zip(colors, columnise(rows)):
+                _pr(line, col)
+            _pr()
 
         # show resolved, or not
         #
@@ -946,13 +948,15 @@ class ResolvedContext(object):
 
             return
 
-        _pr("resolved packages:", heading)
+        if not printOnlyLocal:
+            _pr("resolved packages:", heading)
         rows3: list[tuple[str, str, str]] = []
         colors = []
 
         resolved_packages = self.resolved_packages or []
         if not source_order:
-            resolved_packages = sorted(resolved_packages, key=lambda x: x.name)
+            # resolved_packages = sorted(resolved_packages, key=lambda x: x.name)
+            resolved_packages = sorted(resolved_packages, key=lambda x: x.name.lower())
 
         is_current = self.is_current()
 
@@ -988,15 +992,21 @@ class ResolvedContext(object):
                 col = local
 
             t_str = '(%s)' % ', '.join(t) if t else ''
-            rows3.append((pkg.qualified_package_name, location, t_str))
-            colors.append(col)
+            if not printOnlyLocal:
+                rows3.append((pkg.qualified_package_name, location, t_str))
+                colors.append(col)
+            else:
+                if pkg.is_local:
+                    rows3.append((pkg.qualified_package_name, location, t_str))
+                    colors.append(col)
 
         # add ephemerals to end of resolved packages list
-        ephemerals = self.resolved_ephemerals or []
-        ephemerals = sorted(ephemerals, key=lambda x: x.name)
-        for req in ephemerals:
-            rows3.append((str(req), '', "(ephemeral)"))
-            colors.append(ephemeral_color)
+        if not printOnlyLocal:
+            ephemerals = self.resolved_ephemerals or []
+            ephemerals = sorted(ephemerals, key=lambda x: x.name)
+            for req in ephemerals:
+                rows3.append((str(req), '', "(ephemeral)"))
+                colors.append(ephemeral_color)
 
         for col, line in zip(colors, columnise(rows3)):
             _pr(line, col)
@@ -1016,6 +1026,8 @@ class ResolvedContext(object):
             _pr()
             _pr("tools:", heading)
             self.print_tools(buf=buf)
+
+        _pr()
 
     def print_tools(self, buf: SupportsWrite = sys.stdout) -> None:
         data = self.get_tools()
@@ -1312,7 +1324,8 @@ class ResolvedContext(object):
             parent_environ: Environment to interpret the context within,
                 defaults to os.environ if None.
         """
-        interpreter = Python(target_environ=os.environ)
+        parent_environ = parent_environ if parent_environ is not None else os.environ
+        interpreter = Python(target_environ=parent_environ)
         executor = self._create_executor(interpreter, parent_environ)
         self._execute(executor)
         interpreter.apply_environ()
@@ -1418,6 +1431,7 @@ class ResolvedContext(object):
                       norc: bool = False,
                       stdin: bool = False,
                       command: str | Sequence[str] | None = None,
+                      printOnlyLocal=False,
                       quiet: bool = False,
                       block: bool | None = None,
                       actions_callback: Callable[[RexExecutor], Any] | None = None,
@@ -1441,6 +1455,7 @@ class ResolvedContext(object):
                 If an empty string or list, don't run a command, but don't open
                 an interactive shell either. Can be a list of args.
             quiet: If True, skip the welcome message in interactive shells.
+            printOnlyLocal: If True, print only minimum info
             block: If True, block until the shell is terminated. If False,
                 return immediately. If None, will default to blocking if the
                 shell is interactive.
@@ -1549,6 +1564,7 @@ class ResolvedContext(object):
                            command=command,
                            env=parent_environ,
                            quiet=quiet,
+                           printOnlyLocal=printOnlyLocal,
                            pre_command=pre_command,
                            **Popen_args)
         if block:
@@ -1636,7 +1652,6 @@ class ResolvedContext(object):
             timestamp=self.timestamp,
             requested_timestamp=self.requested_timestamp,
             building=self.building,
-            testing=self.testing,
             caching=self.caching,
             implicit_packages=list(map(str, self.implicit_packages)),
             package_requests=list(map(str, self._package_requests)),
@@ -1644,7 +1659,6 @@ class ResolvedContext(object):
 
             append_sys_path=self.append_sys_path,
             package_caching=self.package_caching,
-            package_cache_async=self.package_cache_async,
 
             default_patch_lock=self.default_patch_lock.name,
 
@@ -1778,7 +1792,7 @@ class ResolvedContext(object):
 
         data = d.get("package_orderers")
         if data:
-            r.package_orderers = PackageOrderList([package_order.from_pod(x) for x in data])
+            r.package_orderers = [package_order.from_pod(x) for x in data]
         else:
             r.package_orderers = None
 
@@ -1800,13 +1814,6 @@ class ResolvedContext(object):
         for eph_str in d.get("resolved_ephemerals", []):
             req = Requirement(eph_str)
             r._resolved_ephemerals.append(req)
-
-        # -- SINCE SERIALIZE VERSION 4.8
-
-        r.package_cache_async = d.get("package_cache_async", True)
-
-        # -- SINCE SERIALIZE 4.9
-        r.testing = d.get("testing", False)
 
         # <END SERIALIZATION>
 
@@ -2049,7 +2056,6 @@ class ResolvedContext(object):
             self.pre_resolve_bindings = {
                 "system": system,
                 "building": self.building,
-                "testing": self.testing,
                 "request": RequirementsBinding(self._package_requests),
                 "implicits": RequirementsBinding(self.implicit_packages),
                 "intersects": intersects

@@ -46,6 +46,10 @@ def setup_parser(parser, completions: bool = False) -> None:
         action="store_true",
         help="print only the resolve list. Use with --su to print package URIs")
     parser.add_argument(
+        "--printOnlyLocal", dest="printOnlyLocal",
+        action="store_true",
+        help="print only local resolve list.")
+    parser.add_argument(
         "--so", "--source-order", dest="source_order", action="store_true",
         help="print resolved packages in order they are sorted, rather than "
         "alphabetical order")
@@ -177,7 +181,8 @@ def command(opts, parser, extra_arg_groups=None) -> None:
         else:
             rc.print_info(verbosity=opts.verbose,
                           source_order=opts.source_order,
-                          show_resolved_uris=opts.show_uris)
+                          show_resolved_uris=opts.show_uris,
+                          printOnlyLocal=opts.printOnlyLocal)
         return
 
     if opts.format in ("dict", "table", "json"):
