@@ -101,6 +101,9 @@ def setup_parser(parser, completions: bool = False) -> None:
         "-q", "--quiet", action="store_true",
         help="run in quiet mode (hides welcome message)")
     parser.add_argument(
+        "--printOnlyLocal", action="store_true",
+        help="verbose minimum info")
+    parser.add_argument(
         "--fail-graph", action="store_true",
         help="if the build environment fails to resolve due to a conflict, "
         "display the resolve graph as an image.")
@@ -271,6 +274,7 @@ def command(opts, parser, extra_arg_groups=None) -> None:
         command=command,
         stdin=opts.stdin,
         quiet=quiet,
+        printOnlyLocal=opts.printOnlyLocal,
         start_new_session=opts.new_session,
         detached=opts.detached,
         pre_command=opts.pre_command,
