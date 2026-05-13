@@ -110,6 +110,7 @@ class PowerShellBase(Shell):
                     command=None,
                     env=None,
                     quiet: bool = False,
+                    printOnlyLocal: bool = False,
                     pre_command=None,
                     add_rez: bool = True,
                     **Popen_args):
