@@ -506,7 +506,15 @@ def canonical_path(path: str, platform=None):
     if platform is None:
         platform = platform_
 
-    path = os.path.normpath(os.path.realpath(path))
+    if is_windows:
+        # [terra.jentsch 06-10-2026]
+        # Don't use os.path.realpath() since it converts drive-mapped paths to their
+        # UNC equivalents, which causes problems for some tools (eg, rez, python, boost)
+        # that don't resolve UNC paths correctly.
+        # See https://github.com/AcademySoftwareFoundation/rez/discussions/1540 for more details.
+        path = os.path.normpath(path)
+    else:
+        path = os.path.normpath(os.path.realpath(path))
 
     if not platform.has_case_sensitive_filesystem:
         return path.lower()
