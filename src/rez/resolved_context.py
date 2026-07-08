@@ -1528,7 +1528,9 @@ class ResolvedContext(object):
         # -----------------------------------------------
         # Marcelo: save rxt contents into a env variable
         with open(rxt_file) as f:
-            rxt_as_string = f.read()
+            rxt_as_dict = json.load(f)
+            rxt_as_dict.pop("graph", None)
+            rxt_as_string = json.dumps(rxt_as_dict)
         executor.env.HH_REZ_RXT_STR = rxt_as_string
         # -----------------------------------------------
 
