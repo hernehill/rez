@@ -1542,6 +1542,7 @@ class ResolvedContext(object):
 
         executor.env.REZ_SHELL_INIT_TIMESTAMP = str(int(time.time()))
         executor.env.REZ_SHELL_INTERACTIVE = "1" if command is None else "0"
+        executor.env.UE_PYTHONPATH = executor.env.PYTHONPATH
 
         if post_actions_callback:
             header_comment(executor, "post-actions-callback")
