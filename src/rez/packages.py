@@ -990,6 +990,15 @@ def _get_families(name: str, paths: list[str] | None = None
         if family_resource:
             entries.append((repo, family_resource))
 
+            # (Marcelo): Windows and Linux are sharing packages, but those are coming
+            # from different release locations per-OS. Their versions may not be in sync
+            # which can cause a Linux solver to pick up a Windows released package and
+            # vice-versa. REZ defaults to append all available locations and later
+            # solve the versions among the available locations. We want to control
+            # the location priorities on rezconfig.py, and, as soon as REZ finds a
+            # package in one location, stop looking.
+            break
+
     return entries
 
 
