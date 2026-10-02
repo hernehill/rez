@@ -455,7 +455,7 @@ class UnixShell(Shell):
         executor = _create_ex()
 
         if self.settings.prompt:
-            newprompt = '${REZ_ENV_PROMPT}%s' % self.settings.prompt
+            newprompt = '\\[\033[0;35m\\][%s${REZ_ENV_PROMPT}]\\[\033[0m\\]' % self.settings.prompt
             executor.interpreter._saferefenv('REZ_ENV_PROMPT')
             executor.env.REZ_ENV_PROMPT = newprompt
 
